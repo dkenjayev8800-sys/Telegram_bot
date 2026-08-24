@@ -1,0 +1,19 @@
+{
+  "publish_times": [
+    "09:00",
+    "15:00",
+    "17:00"
+  ],
+  "topics": [],
+  "queue": [],
+  "settings": {},
+  "source_channel_id": "t.me/buxgalterpro_uz",
+  "tax_reports": [
+    {
+      "name": "- aksiz soligʻi hisob-kitobini taqdim etish va toʻlashning oxirgi kuni\n\n- alkogol mahsulotlarini realizatsiya qilish huquqi uchun yigʻimni toʻlashning oxirgi kuni \n\n- aylanmadan soliq toʻlovchilar hisoblanmaydigan soliq toʻlovchilar tomonidan mol-mulk soligʻi yillik summasining 1/12 qismi miqdorida joriy toʻlovlarni toʻlashning oxirgi kuni\n\n- aylanmadan soliq toʻlovchi boʻlmagan soliq toʻlovchilar tomonidan qishloq xoʻjaligi uchun moʻljallanmagan yerlar boʻyicha yer soligʻi yillik summasining 1/12 qismi miqdorida to'lovlarni toʻlashning oxirgi kuni",
+      "report_day": 10,
+      "payment_day": 10
+    }
+  ],
+  "tests": []
+}
