@@ -38,19 +38,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from config import SOURCE_CHANNEL_ID
     data = load_database()
 
+    # Tugmalarni 2 ta ustun (Grid) qilib joylash                        # o`zim geminida qo`yganman
     keyboard = [
-        [InlineKeyboardButton("⏰ Chop etish vaqtlari", callback_data="times")],
-        [InlineKeyboardButton("📚 Mavzular", callback_data="topics")],
-        [InlineKeyboardButton("📋 Soliq hisobotlari", callback_data="tax_reports")],
-        [InlineKeyboardButton("📊 Poll", callback_data="poll")],
-        [InlineKeyboardButton("📋 Navbat", callback_data="queue")],
-        [InlineKeyboardButton("📊 Avtomatik Chop Status", callback_data="auto_publish_status")]
+        [
+            InlineKeyboardButton("⏰ Vaqtlar", callback_data="times"),
+            InlineKeyboardButton("📚 Mavzular", callback_data="topics")
+        ],
+        [
+            InlineKeyboardButton("📋 Soliq hisobot", callback_data="tax_reports"),
+            InlineKeyboardButton("📊 So'rovnoma", callback_data="poll")
+        ],
+        [
+            InlineKeyboardButton("⏳ Navbat", callback_data="queue"),
+            InlineKeyboardButton("⚙️ Status", callback_data="auto_publish_status")
+        ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        "👋 Salom! Bot sozlamalarini boshqarish\n\nNimani qilishni xoxlaysiz?",
-        reply_markup=reply_markup
+        "👋 <b>Salom! Boshqaruv paneliga xush kelibsiz.</b>\n\n"
+        "👇 <i>Quyidagi bo'limlardan birini tanlang:</i>",
+        reply_markup=reply_markup,
+        parse_mode="HTML"
     )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -131,17 +140,26 @@ Sohangizga tegishli mavzularni tanlang:
 Raqamni yoki o'z mavzuingizni yozing:""", parse_mode="Markdown")
     elif query.data == "back":
         keyboard = [
-            [InlineKeyboardButton("⏰ Chop etish vaqtlari", callback_data="times")],
-            [InlineKeyboardButton("📚 Mavzular", callback_data="topics")],
-            [InlineKeyboardButton("📋 Soliq hisobotlari", callback_data="tax_reports")],
-            [InlineKeyboardButton("📊 Poll", callback_data="poll")],
-            [InlineKeyboardButton("📋 Navbat", callback_data="queue")],
-            [InlineKeyboardButton("📊 Avtomatik Chop Status", callback_data="auto_publish_status")]
+            [
+                InlineKeyboardButton("⏰ Vaqtlar", callback_data="times"),
+                InlineKeyboardButton("📚 Mavzular", callback_data="topics")
+            ],
+            [
+                InlineKeyboardButton("📋 Soliq hisobot", callback_data="tax_reports"),
+                InlineKeyboardButton("📊 So'rovnoma", callback_data="poll")
+            ],
+            [
+                InlineKeyboardButton("⏳ Navbat", callback_data="queue"),
+                InlineKeyboardButton("⚙️ Status", callback_data="auto_publish_status")
+            ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await query.edit_message_text(
-            "👋 Salom! Bot sozlamalarini boshqarish\n\nNimani qilishni xoxlaysiz?",
-            reply_markup=reply_markup
+            "👋 <b>Salom! Boshqaruv paneliga xush kelibsiz.</b>\n\n"
+            "👇 <i>Quyidagi bo'limlardan birini tanlang:</i>",
+            reply_markup=reply_markup,
+            parse_mode="HTML"
         )
     elif query.data.startswith("del_time_"):
         time_str = query.data.replace("del_time_", "")
