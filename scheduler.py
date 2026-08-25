@@ -127,6 +127,31 @@ def send_tax_reminders():
         _send_telegram_msg(ADMIN_USER_ID, message, parse_mode="Markdown")
         logger.info(f"Soliq reminderlari yuborildi: {len(reminders)} ta")
 
+# --- O'CHIRIB YUBORILGAN FUNKSIYALAR QAYTA QO'SHILDI ---
+def add_inactivity_timeout(user_id: int, callback):
+    """1 soat inaktivlikdan so'ng avtomatik chop etish"""
+    job_id = f'timeout_{user_id}'
+
+    if any(job.id == job_id for job in scheduler.get_jobs()):
+        scheduler.remove_job(job_id)
+
+    scheduler.add_job(
+        func=callback,
+        trigger='date',
+        run_date=datetime.now() + timedelta(hours=1),
+        id=job_id,
+        replace_existing=True
+    )
+    logger.info(f"Inaktivlik timeout qo'shildi: {user_id}")
+
+def reset_inactivity_timeout(user_id: int):
+    """Timeout ni reset qilish (yangi amal bajarilganda)"""
+    job_id = f'timeout_{user_id}'
+    if any(job.id == job_id for job in scheduler.get_jobs()):
+        scheduler.remove_job(job_id)
+    logger.info(f"Timeout reset qilindi: {user_id}")
+# --------------------------------------------------------
+
 def schedule_daily_greeting(context):
     """Har kun ertalab salomlashish"""
     if not any(job.id == 'daily_greeting' for job in scheduler.get_jobs()):
@@ -147,7 +172,7 @@ def schedule_friday_message(context):
         scheduler.add_job(
             func=send_friday_message,
             trigger='cron',
-            day_of_week='fri',  # 'fri' yoki 4 (Juma)
+            day_of_week='fri',
             hour=7,
             minute=0,
             timezone=TIMEZONE,
@@ -159,32 +184,24 @@ def schedule_friday_message(context):
 def send_daily_greeting():
     """Ertalab salomlashish"""
     from config import TELEGRAM_CHANNEL_ID
-
     message = """☀️ Assalomu alaykum!
 
 Yangi kun yangi imkoniyatlar keltiradi! 💪
-
 Sizga ishda muvaffaqiyat va barcha ishlaringizda omad tilaymiz! 🎯
-
 Keling, shu kunni qimmatli qilaylik! 🚀"""
-
     _send_telegram_msg(TELEGRAM_CHANNEL_ID, message)
     logger.info("Salomlashish xabari kanalga yuborildi")
 
 def send_friday_message():
     """Juma xabari"""
     from config import TELEGRAM_CHANNEL_ID
-
     message = """🌙 Juma Muborak! 🌙
 
 Juma - barokat va yaxshi niyatlar kuni! 🤲
-
 Ushbu muborak kunni oilangiz, do'stlaringiz va hamkasblaringiz bilan birdamlikda o'tkazing.
-
 Hammangizga juma muborak! 💚
 
 #JumaMuborak #Baraka"""
-
     _send_telegram_msg(TELEGRAM_CHANNEL_ID, message)
     logger.info("Juma xabari kanalga yuborildi")
 
