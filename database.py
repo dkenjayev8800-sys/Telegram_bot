@@ -1,6 +1,7 @@
 import json
 import os
-from datetime import time, datetime
+import csv
+from datetime import time, datetime, timedelta
 from typing import List, Dict, Any
 
 DB_FILE = "bot_data.json"
@@ -127,3 +128,68 @@ def delete_test(test_id: int) -> bool:
     data["tests"] = [t for t in data.get("tests", []) if t["id"] != test_id]
     save_database(data)
     return True
+
+# ==========================================
+# GURUH STATISTIKASI UCHUN YANGI FUNKSIYALAR
+# ==========================================
+
+def log_user_addition(inviter_id: int, inviter_name: str, new_user_id: int) -> bool:
+    """Yangi odam qo'shilganda bazaga yozib qo'yish"""
+    data = load_database()
+    if "group_additions" not in data:
+        data["group_additions"] = []
+    
+    data["group_additions"].append({
+        "inviter_id": inviter_id,
+        "inviter_name": inviter_name,
+        "new_user_id": new_user_id,
+        "date": str(datetime.now())
+    })
+    save_database(data)
+    return True
+
+def get_addition_stats(days: int = 30) -> Dict[int, Dict[str, Any]]:
+    """Belgilangan kunlar ichida kim qancha odam qo'shganini hisoblash"""
+    data = load_database()
+    additions = data.get("group_additions", [])
+    
+    stats = {}
+    cutoff_date = datetime.now() - timedelta(days=days)
+    
+    for entry in additions:
+        try:
+            # Datetime formatini o'qish (mikrosoniyalar bilan yoki ularsiz)
+            date_str = entry["date"]
+            if "." in date_str:
+                entry_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S.%f")
+            else:
+                entry_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                
+            if entry_date >= cutoff_date:
+                inviter = entry["inviter_id"]
+                if inviter not in stats:
+                    stats[inviter] = {
+                        "name": entry.get("inviter_name", f"ID: {inviter}"),
+                        "count": 0
+                    }
+                stats[inviter]["count"] += 1
+        except Exception:
+            continue # Xato sanalar bo'lsa o'tkazib yuboramiz
+            
+    # Natijani eng ko'p odam qo'shgandan boshlab saralash
+    sorted_stats = dict(sorted(stats.items(), key=lambda item: item[1]['count'], reverse=True))
+    return sorted_stats
+
+def export_stats_to_excel(days: int = 30, filename: str = "statistika.csv") -> str:
+    """Ma'lumotlarni Excel (CSV) formatida saqlash"""
+    stats = get_addition_stats(days)
+    
+    with open(filename, mode="w", encoding="utf-8-sig", newline="") as file:
+        writer = csv.writer(file)
+        # Excel ustunlari nomlari
+        writer.writerow(["Foydalanuvchi ID", "Ismi", f"Qo'shgan odamlari soni ({days} kunlik)"])
+        
+        for inviter_id, info in stats.items():
+            writer.writerow([inviter_id, info['name'], info['count']])
+            
+    return filename
