@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID, ADMIN_USER_ID
 from database import (
     load_database, save_database, add_publish_time, remove_publish_time,
-    get_publish_times, add_topic, get_topics, add_to_queue, get_queue, remove_from_queue
+    get_publish_times, add_topic, get_topics, add_to_queue, get_queue, remove_from_queue,
+    log_user_addition, export_stats_to_excel  # <-- Yangi funksiyalar qo'shildi
 )
 from ai_handler import generate_post, refine_post
 from scheduler import start_scheduler, stop_scheduler, add_inactivity_timeout, reset_inactivity_timeout, set_monitor_callback, set_app_context
@@ -38,7 +39,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from config import SOURCE_CHANNEL_ID
     data = load_database()
 
-    # Tugmalarni 2 ta ustun (Grid) qilib joylash                        # o`zim geminida qo`yganman
+    # Tugmalarni 2 ta ustun (Grid) qilib joylash
     keyboard = [
         [
             InlineKeyboardButton("⏰ Vaqtlar", callback_data="times"),
@@ -51,6 +52,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton("⏳ Navbat", callback_data="queue"),
             InlineKeyboardButton("⚙️ Status", callback_data="auto_publish_status")
+        ],
+        [
+            InlineKeyboardButton("📈 Guruh statistikasi (Excel)", callback_data="group_stats")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -94,8 +98,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_queue(query, context)
     elif query.data == "auto_publish_status":
         await show_auto_publish_status(query, context)
+    elif query.data == "group_stats":
+        # EXCEL FAYLNI YUBORISH
+        try:
+            filename = export_stats_to_excel(30, "statistika.csv")
+            with open(filename, 'rb') as doc:
+                await context.bot.send_document(
+                    chat_id=update.effective_chat.id,
+                    document=doc,
+                    caption="📊 Oxirgi 30 kun ichida guruhga odam qo'shganlar reytingi."
+                )
+        except Exception as e:
+            await query.message.reply_text(f"❌ Xatolik yuz berdi: {e}")
+            logger.error(f"Excel xatosi: {e}")
     elif query.data == "add_another_question":
-        query.from_user.id
         user_state[query.from_user.id] = "waiting_test_questions"
         await query.edit_message_text("📝 Keyingi savol matnini kiriting:")
     elif query.data == "test_ready":
@@ -151,6 +167,9 @@ Raqamni yoki o'z mavzuingizni yozing:""", parse_mode="Markdown")
             [
                 InlineKeyboardButton("⏳ Navbat", callback_data="queue"),
                 InlineKeyboardButton("⚙️ Status", callback_data="auto_publish_status")
+            ],
+            [
+                InlineKeyboardButton("📈 Guruh statistikasi (Excel)", callback_data="group_stats")
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -165,7 +184,6 @@ Raqamni yoki o'z mavzuingizni yozing:""", parse_mode="Markdown")
         time_str = query.data.replace("del_time_", "")
         remove_publish_time(time_str)
 
-        # Vaqt o'chirilganda schedulerni yangilash
         from scheduler import schedule_post_publication
         from database import get_publish_times
         all_times = get_publish_times()
@@ -268,10 +286,6 @@ Quyidagisini tanlang yoki kiriting:
 • Boshqa soliq turi...
 
 Yoki o'zing yozing:""", parse_mode="Markdown")
-    elif query.data == "publish_poll":
-        await publish_poll(query, context)
-    elif query.data == "cancel_poll":
-        await cancel_poll(query, context)
     elif query.data == "create_test":
         user_state[query.from_user.id] = "waiting_test_title"
         await query.edit_message_text("📝 Test sarlavhasini kiriting:")
@@ -342,7 +356,6 @@ async def show_tax_reports(query, context: ContextTypes.DEFAULT_TYPE):
             text += f"   📤 Hisobot: Har oyning {report['report_day']}-kuni\n"
             text += f"   💳 To'lov: Har oyning {report['payment_day']}-kuni\n\n"
 
-            # Callback data qisqartirish (max 64 char)
             tax_id = str(i)
             keyboard.append([
                 InlineKeyboardButton(f"✏️", callback_data=f"etax_{tax_id}"),
@@ -476,7 +489,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_state.get(user_id) == "waiting_time":
         if add_publish_time(text):
-            # Yangi vaqt qo'shilganda schedulerni yangilash
             from scheduler import schedule_post_publication
             from database import get_publish_times
             all_times = get_publish_times()
@@ -507,19 +519,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             user_state[user_id] = None
 
-    elif user_state.get(user_id) == "waiting_time":
-        if add_publish_time(text):
-            # Yangi vaqt qo'shilganda schedulerni yangilash
-            from scheduler import schedule_post_publication
-            from database import get_publish_times
-            all_times = get_publish_times()
-            schedule_post_publication(all_times)
-
-            await update.message.reply_text(f"✅ Vaqt qo'shildi: {text}")
-        else:
-            await update.message.reply_text(f"❌ Bu vaqt allaqachon mavjud")
-        user_state[user_id] = None
-
     elif user_state.get(user_id) == "waiting_topic":
         await update.message.reply_text(f"⏳ Ma'lumot yig'ilyapti: {text}")
 
@@ -545,7 +544,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
-            # 1 soat timeout
             add_inactivity_timeout(user_id, lambda: auto_publish_pending(post_id, context))
         except Exception as e:
             await update.message.reply_text(f"❌ Xato: {str(e)}")
@@ -583,7 +581,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
-            # 1 soat timeout
             add_inactivity_timeout(user_id, lambda: auto_publish_pending(post_id, context))
         except Exception as e:
             await update.message.reply_text(f"❌ Xato: {str(e)}")
@@ -653,13 +650,31 @@ async def auto_publish_pending(post_id: int, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logger.error(f"Timeout xabari yuborishda xato: {e}")
 
+# ==========================================
+# GURUH STATISTIKASI UCHUN YANGI HANDLER
+# ==========================================
+async def track_new_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Guruhga qo'shilgan odamlarni hisobga olish"""
+    if update.message and update.message.new_chat_members:
+        inviter = update.message.from_user
+        
+        for member in update.message.new_chat_members:
+            # Agar botlar qo'shilsa hisoblamaslik uchun
+            if not member.is_bot:
+                inviter_name = inviter.full_name if inviter.full_name else f"ID: {inviter.id}"
+                log_user_addition(inviter.id, inviter_name, member.id)
+                logger.info(f"{inviter_name} yangi foydalanuvchi qo'shdi: {member.id}")
+
 def main():
-    """Bot ishga tusishi"""
+    """Bot ishga tushishi"""
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    
+    # Yangi a'zolarni tekshiruvchi handler qo'shildi
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, track_new_members))
 
     # Bot contextini scheduler ga uzatish
     set_app_context(app)
