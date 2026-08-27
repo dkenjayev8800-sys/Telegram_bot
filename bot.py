@@ -520,34 +520,12 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_state[user_id] = None
 
     elif user_state.get(user_id) == "waiting_topic":
-        await update.message.reply_text(f"⏳ Ma'lumot yig'ilyapti: {text}")
-
-        try:
-            post = generate_post(text)
-            post_id = len(pending_posts) + 1
-            pending_posts[post_id] = {
-                "id": post_id,
-                "title": text,
-                "content": post,
-                "status": "waiting_approval"
-            }
-
-            keyboard = [
-                [InlineKeyboardButton("✅ Chop et", callback_data=f"approve_topic_{post_id}")],
-                [InlineKeyboardButton("✏️ Tahrirlash", callback_data=f"refine_topic_{post_id}")],
-                [InlineKeyboardButton("🔄 Qayta generatsiya", callback_data=f"regen_topic_{post_id}")],
-                [InlineKeyboardButton("❌ O'chirish", callback_data=f"delete_topic_{post_id}")],
-            ]
-
-            await update.message.reply_text(
-                f"📝 Mavzu: {text}\n\n{post}",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-
-            add_inactivity_timeout(user_id, lambda: auto_publish_pending(post_id, context))
-        except Exception as e:
-            await update.message.reply_text(f"❌ Xato: {str(e)}")
-
+        # 1-XATO TO'G'RILANDI: "Mavzu qo'shish" endi mavzuni bazaga saqlaydi
+        if add_topic(text):
+            await update.message.reply_text(f"✅ Yangi mavzu bazaga muvaffaqiyatli qo'shildi:\n\n📚 {text}\n\nEndi bot navbatdagi postlarni tayyorlashda ushbu mavzudan ham foydalanadi.")
+        else:
+            await update.message.reply_text("❌ Mavzuni qo'shishda xatolik yuz berdi.")
+            
         user_state[user_id] = None
 
     elif user_state.get(user_id) == "waiting_generate_topic":
@@ -560,7 +538,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⏳ '{topic_text}' mavzusiga oid yangilik yig'ilyapti...")
 
         try:
-            post = generate_post(topic_text)
+            # 2-XATO TO'G'RILANDI: AI dan javob kelishini kutish uchun "await" qo'shildi
+            post = await generate_post(topic_text)
+            
             post_id = len(pending_posts) + 1
             pending_posts[post_id] = {
                 "id": post_id,
@@ -583,7 +563,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             add_inactivity_timeout(user_id, lambda: auto_publish_pending(post_id, context))
         except Exception as e:
-            await update.message.reply_text(f"❌ Xato: {str(e)}")
+            await update.message.reply_text(f"❌ Xato yuz berdi: {str(e)}")
 
         user_state[user_id] = None
 
